@@ -1,0 +1,567 @@
+﻿@page "/login"
+@using MudBlazor
+@using PsychoChat.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<MudTheme Provider="true" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<!-- Шапка -->
+<header class="header">
+    <div class="header-content">
+        <div class="logo">
+            <MudIcon Icon="@Icons.Material.Filled.Psychology" 
+                    Class="header-logo"/>
+            <span class="logo-text">Кризис-Менеджер</span>
+        </div>
+        <nav class="nav">
+            <MudText Class="nav-link" OnClick="@(() => Navigation.NavigateTo("/welcome"))">
+                Главная
+            </MudText>
+            <MudText Class="nav-link" OnClick="@(() => Navigation.NavigateTo("/register"))">
+                Регистрация
+            </MudText>
+        </nav>
+    </div>
+</header>
+
+<!-- Основной контент -->
+<main class="main-content">
+    <section class="section blue-section">
+        <div class="section-content">
+            <div class="auth-container">
+                <!-- Красивая карточка формы -->
+                <div class="form-card">
+                    <div class="form-header">
+                        <h2 class="form-title">Вход в систему</h2>
+                        <p class="form-subtitle">Введите ваш ID для продолжения</p>
+                    </div>
+
+                    <MudForm @ref="form" >
+                        <div class="form-fields">
+                            <!-- Поле для ввода ID -->
+                            <div class="form-group">
+                                <MudTextField @bind-Value="model.UserId" 
+                                             Label="Ваш ID" 
+                                             Variant="Variant.Outlined"
+                                             FullWidth="true"
+                                             Required="true"
+                                             RequiredError="ID обязателен"
+                                             Class="form-input"
+                                             Size="Size.Small"
+                                             Placeholder="Введите ваш уникальный идентификатор"/>
+                            </div>
+                        </div>
+
+                        <!-- Информационный блок -->
+                        <div class="info-box">
+                            <MudIcon Icon="@Icons.Material.Outlined.Info" Class="info-icon"/>
+                            <div class="info-content">
+                                <h4>Где найти ID?</h4>
+                                <p>Ваш ID был выдан при регистрации. Если вы его не помните, обратитесь к администратору.</p>
+                            </div>
+                        </div>
+
+                        <!-- Кнопка входа -->
+                        <div class="form-actions">
+                            <MudButton Variant="Variant.Filled" 
+                                      Color="Color.Primary" 
+                                      FullWidth="true" 
+                                      Size="Size.Medium"
+                                      Class="submit-button"
+                                      Type="Submit"
+                                      Disabled="isLoading"
+                                       OnClick="@(() => Navigation.NavigateTo("/psycho"))">
+                                @if (isLoading)
+                                {
+                                    <MudProgressCircular Size="Size.Small" Color="Color.Inherit" Class="button-spinner"/>
+                                    <span>Вход...</span>
+                                }
+                                else
+                                {
+                                    <span>Войти</span>
+                                }
+                            </MudButton>
+                        </div>
+                    </MudForm>
+
+                    <!-- Разделитель -->
+                    <div class="form-divider">
+                        <div class="divider-line"></div>
+                        <span class="divider-text">или</span>
+                        <div class="divider-line"></div>
+                    </div>
+                    
+                    <!-- Ссылка на регистрацию -->
+                    <div class="form-footer">
+                        <span class="footer-text">Нет аккаунта?</span>
+                        <MudButton Variant="Variant.Text" 
+                                  Color="Color.Primary"
+                                  Size="Size.Small"
+                                  OnClick="NavigateToRegister"
+                                  Class="footer-link">
+                            Быстрая регистрация
+                        </MudButton>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- Подвал -->
+<footer class="footer">
+    <div class="footer-content">
+        <div class="footer-section">
+            <div class="footer-logo">
+                <MudIcon Icon="@Icons.Material.Filled.Psychology" Class="footer-logo-icon"/>
+                <span class="footer-logo-text">Кризис-Менеджер</span>
+            </div>
+        </div>
+        
+        <div class="footer-section">
+            <h4 class="footer-title">Контакты</h4>
+            <div class="footer-contact">help@crisis-manager.ru</div>
+            <div class="footer-contact">8-800-123-45-67</div>
+        </div>
+        
+        <div class="footer-section">
+            <h4 class="footer-title">Ссылки</h4>
+            <MudText Class="footer-link" OnClick="@(() => Navigation.NavigateTo("/welcome"))">
+                Главная
+            </MudText>
+            <MudText Class="footer-link" OnClick="@(() => Navigation.NavigateTo("/register"))">
+                Регистрация
+            </MudText>
+        </div>
+    </div>
+    
+    <div class="footer-bottom">
+        <div class="footer-copyright">
+            © 2025 Кризис-Менеджер
+        </div>
+    </div>
+</footer>
+
+@code {
+    private MudForm form;
+    private bool isLoading = false;
+    private string errorMessage = string.Empty;
+    private LoginModel model = new();
+
+    private class LoginModel
+    {
+        public string UserId { get; set; } = string.Empty;
+    }
+
+    // private async Task HandleLogin()
+    // {
+    //     try
+    //     {
+    //         isLoading = true;
+    //         errorMessage = string.Empty;
+    //         await form.Validate();
+
+    //         if (form.IsValid)
+    //         {
+    //             // Здесь будет логика входа по ID
+    //             var result = await AuthService.LoginByIdAsync(model.UserId);
+
+    //             if (result.Success)
+    //             {
+    //                 Snackbar.Add("Вход выполнен успешно!", Severity.Success);
+    //                 await Task.Delay(1000);
+    //                 Navigation.NavigateTo("/", true);
+    //             }
+    //             else
+    //             {
+    //                 errorMessage = result.Message ?? "Неверный ID пользователя";
+    //                 Snackbar.Add(errorMessage, Severity.Error);
+    //             }
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Ошибка: {ex.Message}", Severity.Error);
+    //     }
+    //     finally
+    //     {
+    //         isLoading = false;
+    //     }
+    // }
+
+    private void NavigateToRegister()
+    {
+        Navigation.NavigateTo("/register");
+    }
+}
+
+<style>
+    /* Общие стили */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    /* Шапка */
+    .header {
+        background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+        padding: 0.8rem 0;
+    }
+
+    .header-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .logo {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .header-logo {
+        font-size: 1.5rem !important;
+        color: white !important;
+    }
+
+    .logo-text {
+        color: white;
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+
+    .nav {
+        display: flex;
+        gap: 0.8rem;
+        align-items: center;
+    }
+
+    .nav-link {
+        color: white !important;
+        font-weight: 500;
+        cursor: pointer;
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        font-size: 0.9rem;
+    }
+
+    .nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.15) !important;
+        transform: translateY(-1px);
+    }
+
+    /* Основной контент */
+    .main-content {
+        min-height: calc(100vh - 120px);
+    }
+
+    .section {
+        padding: 1.5rem 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .blue-section {
+        background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
+        min-height: calc(100vh - 120px);
+    }
+
+    .section-content {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+
+    .auth-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 1rem 0;
+    }
+
+    /* Карточка формы */
+    .form-card {
+        background: white;
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        width: 100%;
+        max-width: 400px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Заголовок формы */
+    .form-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .form-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1976d2;
+        margin: 0 0 0.5rem 0;
+    }
+
+    .form-subtitle {
+        color: #666;
+        font-size: 0.9rem;
+        margin: 0;
+        line-height: 1.4;
+    }
+
+    /* Поля формы */
+    .form-fields {
+        display: flex;
+        flex-direction: column;
+        gap: 1.2rem;
+        margin-bottom: 1.8rem;
+    }
+
+    .form-group {
+        position: relative;
+    }
+
+    .form-input {
+        border-radius: 12px !important;
+    }
+
+    .form-input .mud-input-outlined {
+        border-radius: 12px;
+    }
+
+    .form-input .mud-input-slot {
+        padding: 0.4rem;
+    }
+
+    .form-input .mud-input-label {
+        font-size: 0.85rem;
+        color: #666;
+    }
+
+    .form-input .mud-input-outlined-border {
+        border-radius: 12px;
+        border: 2px solid #e3f2fd;
+        transition: all 0.2s ease;
+    }
+
+    .form-input:hover .mud-input-outlined-border {
+        border-color: #90caf9;
+    }
+
+    .form-input.mud-input-focused .mud-input-outlined-border {
+        border-color: #1976d2;
+    }
+
+    /* Информационный блок */
+    .info-box {
+        background-color: #e3f2fd;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        gap: 0.8rem;
+    }
+
+    .info-icon {
+        color: #1976d2 !important;
+        font-size: 1.2rem !important;
+        margin-top: 0.2rem;
+    }
+
+    .info-content h4 {
+        margin: 0 0 0.4rem 0;
+        font-size: 0.9rem;
+        color: #1976d2;
+    }
+
+    .info-content p {
+        margin: 0;
+        font-size: 0.8rem;
+        color: #546e7a;
+        line-height: 1.4;
+    }
+
+    /* Кнопка отправки */
+    .form-actions {
+        margin-bottom: 1.5rem;
+    }
+
+    .submit-button {
+        border-radius: 12px !important;
+        height: 42px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        background: linear-gradient(135deg, #1976d2, #42a5f5) !important;
+        color: white !important;
+        border: none;
+        transition: all 0.3s ease;
+        text-transform: none;
+    }
+
+    .submit-button:hover:not(.mud-button-disabled) {
+        background: linear-gradient(135deg, #1565c0, #1976d2) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(25, 118, 210, 0.3) !important;
+    }
+
+    .button-spinner {
+        margin-right: 0.5rem;
+    }
+
+    /* Разделитель */
+    .form-divider {
+        display: flex;
+        align-items: center;
+        margin: 1.5rem 0;
+    }
+
+    .divider-line {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #e0e0e0, transparent);
+    }
+
+    .divider-text {
+        padding: 0 1rem;
+        color: #999;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    /* Футер формы */
+    .form-footer {
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .footer-text {
+        color: #666;
+        font-size: 0.85rem;
+    }
+
+    .footer-link {
+        font-weight: 600;
+        font-size: 0.85rem !important;
+        padding: 0.2rem 0.5rem !important;
+    }
+
+    /* Подвал */
+    .footer {
+        background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+        color: white;
+        padding: 1.5rem 0 1rem 0;
+        margin-top: auto;
+    }
+
+    .footer-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1.5rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.2rem;
+    }
+
+    .footer-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+
+    .footer-logo {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .footer-logo-icon {
+        font-size: 1.2rem !important;
+        color: white !important;
+    }
+
+    .footer-logo-text {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    .footer-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: white;
+    }
+
+    .footer-contact {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 0.8rem;
+    }
+
+    .footer-link {
+        color: rgba(255, 255, 255, 0.9) !important;
+        cursor: pointer;
+        font-size: 0.8rem !important;
+        padding: 0.1rem 0 !important;
+        transition: color 0.2s ease;
+    }
+
+    .footer-link:hover {
+        color: #e3f2fd !important;
+    }
+
+    .footer-bottom {
+        text-align: center;
+        padding-top: 1.2rem;
+        margin-top: 1.2rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .footer-copyright {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.75rem;
+    }
+
+    /* Адаптивность */
+    @@media (max-width: 768px) {
+        .form-card {
+            padding: 1.5rem;
+            max-width: 350px;
+        }
+
+        .form-title {
+            font-size: 1.3rem;
+        }
+        
+        .info-box {
+            flex-direction: column;
+            text-align: center;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .form-card {
+            padding: 1.2rem;
+            margin: 0 0.5rem;
+            border-radius: 16px;
+        }
+
+        .form-title {
+            font-size: 1.2rem;
+        }
+    }
+</style>

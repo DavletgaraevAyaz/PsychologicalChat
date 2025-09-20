@@ -1,0 +1,793 @@
+﻿@page "/chat"
+@using MudBlazor
+@using PsychoChat.Models
+@using PsychoChat.Services
+@inject ChatService ChatService
+@inject NavigationManager Navigation
+
+<MudTheme Provider="true"/>
+<MudDialogProvider/>
+<MudSnackbarProvider/>
+
+<!-- Синий хедер как на welcome -->
+<header class="blue-header">
+    <div class="header-content">
+        <div class="logo-section">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" 
+                          Color="Color.Inherit"
+                          OnClick="NavigateToPsycho"
+                          Class="back-button-header"/>
+            <MudIcon Icon="@Icons.Material.Filled.Psychology" 
+                    Class="header-logo"/>
+            <span class="header-title">Кризис-Менеджер</span>
+        </div>
+        <MudText Typo="Typo.body2" Class="header-subtitle">
+            Анонимный чат с психологом
+        </MudText>
+    </div>
+</header>
+
+<main class="main-content">
+    <!-- Чат с психологом - белая секция -->
+    <section class="white-section">
+        <div class="chat-container">
+            <MudPaper Class="chat-paper" Elevation="2">
+                <!-- Заголовок чата -->
+                <div class="chat-header">
+                    <div class="chat-info">
+                        <div class="partner-info">
+                            <div class="partner-avatar online">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" 
+                                        Color="Color.Primary"/>
+                            </div>
+                            <div>
+                                <MudText Typo="Typo.h6" Class="partner-name">
+                                    Психолог поддержки
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Готов помочь вам 24/7
+                                </MudText>
+                            </div>
+                        </div>
+                        
+                        <div class="chat-actions">
+                            @* <MudChip Color="Color.Success" 
+                                    Variant="Variant.Filled" 
+                                    Size="Size.Small"
+                                    Class="status-chip">
+                                Online
+                            </MudChip> *@
+                        </div>
+                    </div>
+                </div>
+
+                <MudDivider/>
+
+                <!-- Область сообщений -->
+                <div class="messages-container" @ref="_messagesContainer">
+                    @if (_messages.Any())
+                    {
+                        @foreach (var message in _messages)
+                        {
+                            <div class="@($"message {(message.Sender == "user" ? "message-user" : "message-psychologist")}")">
+                                <div class="message-bubble">
+                                    <div class="message-text">@message.Message</div>
+                                    <div class="message-time">
+                                        @message.Timestamp.ToString("HH:mm")
+                                        @if (message.IsRead && message.Sender == "user")
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.DoneAll" 
+                                                    Size="Size.Small" 
+                                                    Class="read-icon"/>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="empty-chat">
+                            <MudIcon Icon="@Icons.Material.Filled.Chat" 
+                                    Size="Size.Large" 
+                                    Color="Color.Secondary"/>
+                            <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mb-2">
+                                Добро пожаловать в анонимный чат!
+                            </MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="text-center">
+                                Наши психологи готовы выслушать вас. <br/>
+                                Напишите ваше сообщение ниже.
+                            </MudText>
+                        </div>
+                    }
+                </div>
+
+                <!-- Индикатор набора сообщения -->
+                @if (_isPsychologistTyping)
+                {
+                    <div class="typing-indicator">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Психолог печатает...
+                        </MudText>
+                        <div class="typing-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                }
+
+                <!-- Поле ввода - ИСПРАВЛЕННЫЙ СТИЛЬ -->
+                <div class="message-input-container">
+                    <div class="input-wrapper">
+                        <MudTextField @bind-Value="_newMessage"
+                                     Variant="Variant.Outlined"
+                                     Placeholder="Напишите ваше сообщение..."
+                                     FullWidth="true"
+                                     Adornment="@Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.EmojiEmotions"
+                                     OnAdornmentClick="ShowEmojiPicker"
+                                     OnKeyDown="HandleKeyDown"
+                                     Class="custom-message-input"
+                                     Immediate="true"/>
+                        
+                        <MudButton Variant="Variant.Filled"
+                                  Color="Color.Primary"
+                                  OnClick="SendMessage"
+                                  Disabled="string.IsNullOrWhiteSpace(_newMessage)"
+                                  Class="send-button"
+                                  EndIcon="@Icons.Material.Filled.Send">
+                            Отправить
+                        </MudButton>
+                    </div>
+                </div>
+            </MudPaper>
+        </div>
+    </section>
+</main>
+
+<!-- Попап для выбора эмодзи -->
+<MudDialog @bind-IsVisible="_showEmojiPicker" Class="emoji-dialog">
+    <DialogContent>
+        <MudText Typo="Typo.h6">Выберите эмодзи</MudText>
+        <div class="emoji-grid">
+            <MudButton Variant="Variant.Text" OnClick="@(() => AddEmoji("😊"))">😊</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="@(() => AddEmoji("😂"))">😂</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="@(() => AddEmoji("🥺"))">🥺</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="@(() => AddEmoji("❤️"))">❤️</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="@(() => AddEmoji("👍"))">👍</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="@(() => AddEmoji("🙏"))">🙏</MudButton>
+        </div>
+    </DialogContent>
+</MudDialog>
+
+<style>
+    /* Общие стили */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    /* Синий хедер */
+    .blue-header {
+        background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+        padding: 1.5rem 0;
+        color: white;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .header-content {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .logo-section {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .back-button-header {
+        color: white !important;
+        margin-right: 0.5rem;
+    }
+
+    .back-button-header:hover {
+        background: rgba(255, 255, 255, 0.1) !important;
+    }
+
+    .header-logo {
+        font-size: 2rem !important;
+        color: white !important;
+    }
+
+    .header-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: white;
+    }
+
+    .header-subtitle {
+        color: rgba(255, 255, 255, 0.9) !important;
+    }
+
+    /* Основной контент */
+    .main-content {
+        min-height: calc(100vh - 80px);
+    }
+
+    /* Белая секция - чат */
+    .white-section {
+        background: #f5f7fa;
+        padding: 2rem 0;
+        min-height: calc(100vh - 80px);
+    }
+
+    .chat-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        height: calc(100vh - 180px);
+    }
+
+    .chat-paper {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.1);
+        background: white;
+    }
+
+    .chat-header {
+        padding: 1.5rem 2rem;
+        background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
+        color: white;
+    }
+
+    .chat-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .partner-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .partner-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+
+    .partner-avatar::after {
+        content: '';
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 12px;
+        height: 12px;
+        border: 2px solid #1976d2;
+        border-radius: 50%;
+        background-color: #4caf50;
+    }
+
+    .partner-name {
+        color: white !important;
+        margin-bottom: 0.25rem !important;
+        font-weight: 600 !important;
+    }
+
+    .status-chip {
+        background: rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
+        border: none !important;
+        font-weight: 500;
+    }
+
+    .messages-container {
+        flex: 1;
+        padding: 2rem;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1.2rem;
+        background: #f8f9fa;
+        background-image: radial-gradient(#e3f2fd 1px, transparent 1px);
+        background-size: 20px 20px;
+    }
+
+    .empty-chat {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        text-align: center;
+        color: #666;
+        padding: 2rem;
+    }
+
+    .message {
+        display: flex;
+        max-width: 75%;
+        animation: messageAppear 0.3s ease;
+    }
+
+    .message-user {
+        align-self: flex-end;
+        margin-left: auto;
+    }
+
+    .message-psychologist {
+        align-self: flex-start;
+    }
+
+    .message-bubble {
+        padding: 1rem 1.5rem;
+        border-radius: 20px;
+        position: relative;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .message-user .message-bubble {
+        background: linear-gradient(135deg, #1976d2, #42a5f5);
+        color: white;
+        border-bottom-right-radius: 8px;
+    }
+
+    .message-psychologist .message-bubble {
+        background: white;
+        color: #333;
+        border: 1px solid #e0e0e0;
+        border-bottom-left-radius: 8px;
+    }
+
+    .message-text {
+        margin-bottom: 0.5rem;
+        line-height: 1.5;
+        font-size: 0.95rem;
+    }
+
+    .message-time {
+        font-size: 0.75rem;
+        opacity: 0.8;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .message-user .message-time {
+        justify-content: flex-end;
+    }
+
+    .message-psychologist .message-time {
+        justify-content: flex-start;
+    }
+
+    .read-icon {
+        font-size: 1rem !important;
+        opacity: 0.8;
+    }
+
+    .typing-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 1rem 2rem;
+        background: white;
+        border-top: 1px solid #e0e0e0;
+    }
+
+    .typing-dots {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .typing-dots span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #666;
+        animation: typing 1.4s infinite ease-in-out;
+    }
+
+    .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+    @@keyframes typing {
+        0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+        40% { transform: scale(1.2); opacity: 1; }
+    }
+
+    /* ИСПРАВЛЕННОЕ ПОЛЕ ВВОДА */
+    .message-input-container {
+        padding: 1.5rem 2rem;
+        background: white;
+        border-top: 1px solid #e0e0e0;
+    }
+
+    .input-wrapper {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .custom-message-input {
+        background: #f8f9fa !important;
+        border-radius: 25px !important;
+    }
+
+    .custom-message-input .mud-input-outlined {
+        border-radius: 25px !important;
+    }
+
+    .custom-message-input .mud-input-outlined-border {
+        border-radius: 25px !important;
+        border: 2px solid #e0e0e0 !important;
+    }
+
+    .custom-message-input .mud-input-outlined-border:hover {
+        border-color: #1976d2 !important;
+    }
+
+    .custom-message-input.mud-input-focused .mud-input-outlined-border {
+        border-color: #1976d2 !important;
+        border-width: 2px !important;
+    }
+
+    .custom-message-input .mud-input-slot {
+        padding: 0.5rem 1rem !important;
+    }
+
+    .custom-message-input .mud-input-label {
+        color: #666 !important;
+        margin-left: 0.5rem !important;
+    }
+
+    .custom-message-input .mud-input-adornment {
+        margin-right: 0.5rem !important;
+    }
+
+    .send-button {
+        border-radius: 25px !important;
+        height: 48px !important;
+        min-width: 120px !important;
+        font-weight: 600 !important;
+        text-transform: none !important;
+    }
+
+    /* Диалог эмодзи */
+    .emoji-dialog .mud-dialog-content {
+        padding: 1.5rem;
+    }
+
+    .emoji-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .emoji-grid .mud-button {
+        font-size: 1.5rem;
+        min-width: auto;
+        padding: 0.5rem;
+    }
+
+    /* Анимации */
+    @@keyframes messageAppear {
+        from {
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    /* Стили для скроллбара */
+    .messages-container::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .messages-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .messages-container::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+
+    .messages-container::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* Адаптивность */
+    @@media (max-width: 768px) {
+        .header-content {
+            padding: 0 1rem;
+        }
+        
+        .blue-header {
+            padding: 1rem 0;
+        }
+        
+        .chat-container {
+            padding: 0 1rem;
+            height: calc(100vh - 140px);
+        }
+        
+        .chat-header {
+            padding: 1rem 1.5rem;
+        }
+        
+        .messages-container {
+            padding: 1.5rem;
+        }
+        
+        .message-input-container {
+            padding: 1rem 1.5rem;
+        }
+        
+        .input-wrapper {
+            gap: 0.75rem;
+        }
+        
+        .send-button {
+            min-width: 100px !important;
+            height: 44px !important;
+        }
+        
+        .message {
+            max-width: 85%;
+        }
+        
+        .partner-avatar {
+            width: 40px;
+            height: 40px;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .header-title {
+            font-size: 1.25rem;
+        }
+        
+        .header-subtitle {
+            display: none;
+        }
+        
+        .chat-header {
+            padding: 0.75rem 1rem;
+        }
+        
+        .messages-container {
+            padding: 1rem;
+        }
+        
+        .message-bubble {
+            padding: 0.75rem 1rem;
+        }
+        
+        .input-wrapper {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .send-button {
+            width: 100% !important;
+        }
+        
+        .emoji-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+        
+        .custom-message-input .mud-input-slot {
+            padding: 0.5rem !important;
+        }
+    }
+</style>
+
+@code {
+    private List<ChatMessage> _messages = new();
+    private string _newMessage = string.Empty;
+    private ElementReference _messagesContainer;
+    private bool _showEmojiPicker = false;
+    private bool _isPsychologistTyping = false;
+    private Timer? _typingTimer;
+
+    private void NavigateToPsycho()
+    {
+        Navigation.NavigateTo("/psycho");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Загружаем историю чата с психологом
+        await LoadChatHistory();
+        
+        // Подписываемся на новые сообщения
+        ChatService.OnNewMessage += HandleNewMessage;
+        
+        // Имитируем набор сообщения психологом
+        SimulatePsychologistTyping();
+    }
+
+    private async Task LoadChatHistory()
+    {
+        // Загружаем историю чата из сервиса
+        var chatId = await GetOrCreateChatSession();
+        _messages = ChatService.GetChatHistory(chatId);
+        
+        // Прокручиваем к последнему сообщению
+        await ScrollToBottom();
+    }
+
+    private async Task<Guid> GetOrCreateChatSession()
+    {
+        // Здесь должна быть логика получения или создания сессии чата с психологом
+        // Пока используем фиксированный ID для демонстрации
+        return Guid.NewGuid();
+    }
+
+    private async void SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_newMessage))
+            return;
+
+        var chatId = await GetOrCreateChatSession();
+        
+        // Отправляем сообщение
+        ChatService.SendMessage(chatId, _newMessage);
+        
+        // Добавляем сообщение в историю
+        _messages.Add(new ChatMessage
+        {
+            Id = Guid.NewGuid(),
+            ChatId = chatId,
+            Sender = "user",
+            Message = _newMessage,
+            Timestamp = DateTime.Now,
+            IsRead = false
+        });
+
+        _newMessage = string.Empty;
+        await ScrollToBottom();
+        StateHasChanged();
+
+        // Имитируем ответ психолога
+        SimulatePsychologistResponse();
+    }
+
+    private void SimulatePsychologistResponse()
+    {
+        _isPsychologistTyping = true;
+        StateHasChanged();
+
+        // Таймер для имитации набора сообщения
+        _typingTimer?.Dispose();
+        _typingTimer = new Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                _isPsychologistTyping = false;
+                
+                var chatId = await GetOrCreateChatSession();
+                var response = ChatService.GetPsychologistResponse(_messages.LastOrDefault()?.Message ?? "");
+                
+                var psychologistMessage = new ChatMessage
+                {
+                    Id = Guid.NewGuid(),
+                    ChatId = chatId,
+                    Sender = "psychologist",
+                    Message = response,
+                    Timestamp = DateTime.Now,
+                    IsRead = true
+                };
+
+                _messages.Add(psychologistMessage);
+                await ScrollToBottom();
+                StateHasChanged();
+            });
+        }, null, 2000, Timeout.Infinite);
+    }
+
+    private void SimulatePsychologistTyping()
+    {
+        // Случайная имитация набора сообщения психологом
+        var random = new Random();
+        if (random.Next(0, 100) > 70 && !_messages.Any()) // 30% chance если чат пустой
+        {
+            _isPsychologistTyping = true;
+            StateHasChanged();
+
+            _typingTimer = new Timer(async _ =>
+            {
+                await InvokeAsync(async () =>
+                {
+                    _isPsychologistTyping = false;
+                    
+                    var chatId = await GetOrCreateChatSession();
+                    var welcomeMessage = new ChatMessage
+                    {
+                        Id = Guid.NewGuid(),
+                        ChatId = chatId,
+                        Sender = "psychologist",
+                        Message = "Добро пожаловать! Я готов вас выслушать. Расскажите, что вас беспокоит?",
+                        Timestamp = DateTime.Now,
+                        IsRead = true
+                    };
+
+                    _messages.Add(welcomeMessage);
+                    await ScrollToBottom();
+                    StateHasChanged();
+                });
+            }, null, 3000, Timeout.Infinite);
+        }
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            SendMessage();
+        }
+    }
+
+    private void HandleNewMessage(ChatMessage message)
+    {
+        _messages.Add(message);
+        ScrollToBottom();
+        StateHasChanged();
+    }
+
+    private async Task ScrollToBottom()
+    {
+        await Task.Delay(100);
+        try
+        {
+            // Прокрутка будет реализована позже
+            // await _messagesContainer.ScrollIntoViewAsync();
+        }
+        catch
+        {
+            // Игнорируем ошибки скролла
+        }
+    }
+
+    private void ShowEmojiPicker()
+    {
+        _showEmojiPicker = true;
+    }
+
+    private void AddEmoji(string emoji)
+    {
+        _newMessage += emoji;
+        _showEmojiPicker = false;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        ChatService.OnNewMessage -= HandleNewMessage;
+        _typingTimer?.Dispose();
+    }
+}

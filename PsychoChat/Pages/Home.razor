@@ -1,0 +1,37 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<MudContainer Class="text-center">
+    <MudProgressCircular Color="Color.Primary"/>
+</MudContainer>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        
+        if (!authState.User.Identity?.IsAuthenticated ?? true)
+        {
+            Navigation.NavigateTo("/welcome", true);
+            return;
+        }
+
+        var role = authState.User.FindFirst(ClaimTypes.Role)?.Value;
+
+        if (role == "Student")
+        {
+            Navigation.NavigateTo("/chat", true);
+        }
+        else if (role == "Psychologist")
+        {
+            Navigation.NavigateTo("/chat-dashboard", true);
+        }
+        else
+        {
+            Navigation.NavigateTo("/welcome", true);
+        }
+    }
+}
